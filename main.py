@@ -25,9 +25,12 @@ class AI(Player):
 
     def guess(self, player_gesture, player_number):
         state = np.array([[player_gesture, player_number]])
-        action_probs = self.actor_model(state)
-        action = np.random.choice(range(10), p=action_probs.numpy()[0])
-        return action
+        gesture_probs, number_probs = self.actor_model(state)
+
+        gesture = np.random.choice(10, p=gesture_probs[0])  # 注意这里不再进行除法操作
+        number = np.random.choice(19, p=number_probs[0])  # 注意这里不再进行除法操作
+
+        return gesture, number
 
 
 class ActorModel(Model):
@@ -35,12 +38,15 @@ class ActorModel(Model):
         super(ActorModel, self).__init__()
         self.dense1 = Dense(64, activation='relu')
         self.dense2 = Dense(64, activation='relu')
-        self.output_layer = Dense(10, activation='softmax')
+        self.gesture_out = Dense(10, activation='softmax')
+        self.number_out = Dense(19, activation='softmax')
 
     def call(self, state):
         x = self.dense1(state)
         x = self.dense2(x)
-        return self.output_layer(x)
+        gesture_probs = self.gesture_out(x)
+        number_probs = tf.nn.softmax(self.number_out(x))  # 对number_out进行softmax操作
+        return gesture_probs, number_probs
 
 
 def train_model(num_episodes):
@@ -51,7 +57,7 @@ def train_model(num_episodes):
         # 获得trajectory
         # 计算累积rewards
         # 训练actor model
-        actor_model.save_weights('./weights.h5')
+        actor_model.save_weights('./model.h5')
 
     return actor_model
 
@@ -61,21 +67,26 @@ def play_game(player, ai, rounds):
     ai_wins = 0
 
     for episode in range(rounds):
+
         print(f"第{episode + 1}轮开始:")
 
+        # 玩家输入
         player_gesture, player_number = player.get_input()
 
-        ai_action = ai.guess(player_gesture, player_number)
-        ai_gesture, ai_number = ai_action // 10, ai_action % 10
+        # AI猜测
+        ai_gesture, ai_number = ai.guess(player_gesture, player_number)
 
+        # 输出双方选择
         print(f"{player.name}的数字:{player_gesture}, {player_number}")
         print(f"{ai.name}的数字:{ai_gesture}, {ai_number}")
 
-        total = player_gesture + ai_gesture
-        if total == player_number:
+        # 判断胜负
+        total_1 = player_gesture + ai_gesture
+        #total_2 = player_number + ai_number
+        if total_1 == player_gesture:
             print(f"{player.name}胜利!")
             player_wins += 1
-        elif total == ai_number:
+        elif total_1 == ai_gesture:
             print(f"{ai.name}胜利!")
             ai_wins += 1
         else:
@@ -85,6 +96,7 @@ def play_game(player, ai, rounds):
 
 
 def main():
+    #ai = AI('AI')
     print("欢迎来到猜码游戏!")
 
     player = Player('玩家')
@@ -96,7 +108,7 @@ def main():
         ai.actor_model = actor_model
     else:
         try:
-            ai.actor_model.load_weights('./weights.h5')
+            ai.actor_model.load_weights('./model.h5')
         except:
             ai.actor_model = ActorModel()
 
