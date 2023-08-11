@@ -27,8 +27,14 @@ class AI(Player):
         state = np.array([[player_gesture, player_number]])
         gesture_probs, number_probs = self.actor_model(state)
 
-        gesture = np.random.choice(10, p=gesture_probs[0])  # 注意这里不再进行除法操作
-        number = np.random.choice(19, p=number_probs[0])  # 注意这里不再进行除法操作
+        max_gesture = np.max(gesture_probs)
+        gesture_probs = np.exp(gesture_probs - max_gesture) / np.sum(np.exp(gesture_probs - max_gesture))
+
+        max_number = np.max(number_probs)
+        number_probs = np.exp(number_probs - max_number) / np.sum(np.exp(number_probs - max_number))
+
+        gesture = np.random.choice(10, p=gesture_probs[0])
+        number = np.random.choice(19, p=number_probs[0])
 
         return gesture, number
 
